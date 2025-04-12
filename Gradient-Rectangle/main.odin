@@ -1,10 +1,10 @@
+
+
 package maing
 
 import "core:fmt"
 import win "core:sys/windows"
 import "base:runtime"
-
-
 
 // Globals
 running := true
@@ -38,31 +38,29 @@ window_event_proc :: proc "stdcall" (
 
 			win.PatBlt(device_context, x, y, width, height, win.BLACKNESS) // Drawing the background color of the window
 
-			// Vertices for the triangle -- The points that make up the triange
-			vertex: [3]win.TRIVERTEX = {
-				{150, 0, 0xff00, 0x8000, 0x0000, 0x0000},
-				{0, 150, 0x9000, 0x0000, 0x9000, 0x0000},
-				{300, 150, 0x9000, 0x0000, 0x9000, 0x0000},
+			gRect:win.GRADIENT_RECT = {
+				UpperLeft = 0,
+				LowerRight = 1,
 			}
 
-			gTriangle:win.GRADIENT_TRIANGLE = {
-				Vertex1 = 0,
-				Vertex2 = 1,
-				Vertex3 = 2,
+
+			// Vertices for the rectangle -- The points that make up the triange -- only need upper left and lower right
+			vertex: [2]win.TRIVERTEX = {
+				{0, 0, 0xff00, 0x8000, 0x0000, 0x0000},
+				{150, 150, 0x9000, 0x0000, 0x9000, 0x0000},
 			}
 			
 			win.GdiGradientFill(
-				hdc = device_context,
-				pVertex = raw_data(&vertex),
-				nVertex = 3,
-				pMesh = &gTriangle,
-				nCount = 1,
-				ulMode = win.GRADIENT_FILL_TRIANGLE,
-			) // Draw triangle
+			hdc = device_context,
+			pVertex = raw_data(&vertex),
+			nVertex = 2,
+			pMesh = &gRect,
+			nCount = 1,
+			ulMode = win.GRADIENT_FILL_RECT_H
+			)
 
-
-			
 			win.EndPaint(hWnd = window, lpPaint = &paint)
+
 		case win.WM_KEYDOWN:
 			// The event for handling key presses (like escape, shift, etc)
 			switch wParam {
@@ -91,7 +89,7 @@ main :: proc() {
 		style = win.CS_OWNDC | win.CS_HREDRAW | win.CS_VREDRAW,
 		lpfnWndProc = window_event_proc, // [] created callback function
 		hInstance = instance,
-		lpszClassName = win.L("TriangleWindowClass"),		
+		lpszClassName = win.L("RectangleleWindowClass"),		
 	}
 
 	win.RegisterClassW(lpWndClass = &window_class) // Register the class
@@ -100,7 +98,7 @@ main :: proc() {
 	window := win.CreateWindowExW(
 		dwExStyle = 0,
 		lpClassName = window_class.lpszClassName,
-		lpWindowName = win.L("Triangle"),
+		lpWindowName = win.L("Rectangle"),
 		dwStyle = win.WS_OVERLAPPED | win.WS_VISIBLE | win.WS_SYSMENU,
 		X = 0,
 		Y = 0,
