@@ -10,5 +10,5 @@ Please keep in mind this repository is being used as a learning resource; meanin
 are then placed in this repo, but only things in regards to graphics drawing/rendering with
 the win32 api. 
 
-More things like moving images around and sound may or may not be added to this repository as a resultMore things like moving images around and sound may or may not be added to this repository as a result.
-It is unclear how far this repository will go at this time.
+This was originally started for learning game development, as such, more things like moving images around and sound may or may not be added to this repository as a result.
+It is unclear how far this repository will go at this time and what direction it will take. 
