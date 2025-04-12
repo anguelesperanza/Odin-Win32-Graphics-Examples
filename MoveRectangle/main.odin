@@ -1,11 +1,30 @@
+
 package maing
 
 import "core:fmt"
 import win "core:sys/windows"
 import "base:runtime"
 
+
+/*
+	Moving a rectangle:
+	This file shows how to move a GDI created rectangle; specifically a gradient rectangle;
+	as such this is built on top of the Gradient Rectangle file
+
+	Changes to this file:
+	move_x, move_y global values to update the gradient rectangle's position
+	This redraw function:
+		RedrawWindow :: proc(hwnd: HWND, lprcUpdate: LPRECT, hrgnUpdate: HRGN, flags: RedrawWindowFlags) -> BOOL ---
+	This is places at the end of each key event. It will for the screen to repaint after we press a key (wasd specifically)
+*/
+
+
 // Globals
-running := true
+running := true // Exiting main loop (which in turn leads to exiting application)
+
+// Movements based on keypress
+move_x:i32
+move_y:i32
 
 // Callback function for handling events
 window_event_proc :: proc "stdcall" (
@@ -43,11 +62,12 @@ window_event_proc :: proc "stdcall" (
 
 
 			// Vertices for the rectangle -- The points that make up the triange -- only need upper left and lower right
+			// For moving the rectangle, added variables to the x and y positions to adjust accordingly
 			vertex: [2]win.TRIVERTEX = {
-				{0, 0, 0xff00, 0x8000, 0x0000, 0x0000},
-				{150, 150, 0x9000, 0x0000, 0x9000, 0x0000},
+				{move_x, move_y, 0xff00, 0x8000, 0x0000, 0x0000},
+				{150 + move_x, 150 + move_y, 0x9000, 0x0000, 0x9000, 0x0000},
 			}
-			
+
 			win.GdiGradientFill(
 			hdc = device_context,
 			pVertex = raw_data(&vertex),
@@ -58,6 +78,7 @@ window_event_proc :: proc "stdcall" (
 			)
 
 			win.EndPaint(hWnd = window, lpPaint = &paint)
+
 
 		case win.WM_KEYDOWN:
 			// The event for handling key presses (like escape, shift, etc)
@@ -72,12 +93,89 @@ window_event_proc :: proc "stdcall" (
 				case:
 					key := win.GET_KEYSTATE_WPARAM(wParam = wParam)
 					fmt.println(rune(key))
+
+					// Could be switch/case statements but chose if because why not
+					if key == 'w'{
+						move_y -= 1
+						fmt.println(move_y)
+
+						result := win.RedrawWindow(
+						hwnd = window,
+						lprcUpdate = nil,
+						hrgnUpdate = nil,
+						flags = .RDW_UPDATENOW | .RDW_INVALIDATE // invalidate lets window be redrawn and updatenow forces window to update/redraw
+						)
+
+						if result {
+							fmt.println("Redrawn Successully")
+						} else {
+							fmt.println("Redrawn Failed")
+						}
+
+						
+					}
+					else if key == 's'{
+						move_y += 1
+						fmt.println(move_y)
+
+
+						result := win.RedrawWindow(
+						hwnd = window,
+						lprcUpdate = nil,
+						hrgnUpdate = nil,
+						flags = .RDW_UPDATENOW | .RDW_INVALIDATE // invalidate lets window be redrawn and updatenow forces window to update/redraw
+						)
+
+						if result {
+							fmt.println("Redrawn Successully")
+						} else {
+							fmt.println("Redrawn Failed")
+						}
+
+						
+					}
+					else if key == 'a'{
+						move_x -= 1
+						fmt.println(move_x)
+
+						
+						result := win.RedrawWindow(
+						hwnd = window,
+						lprcUpdate = nil,
+						hrgnUpdate = nil,
+						flags = .RDW_UPDATENOW | .RDW_INVALIDATE // invalidate lets window be redrawn and updatenow forces window to update/redraw
+ 						)
+
+						if result {
+							fmt.println("Redrawn Successully")
+						} else {
+							fmt.println("Redrawn Failed")
+						}
+
+					}
+					else if key == 'd'{
+						move_x += 1
+						fmt.println(move_x)
+						
+						result := win.RedrawWindow(
+						hwnd = window,
+						lprcUpdate = nil,
+						hrgnUpdate = nil,
+						flags = .RDW_UPDATENOW | .RDW_INVALIDATE // invalidate lets window be redrawn and updatenow forces window to update/redraw
+						)
+
+						if result {
+							fmt.println("Redrawn Successully")
+						} else {
+							fmt.println("Redrawn Failed")
+						}
+
+					}
 			}
 	}
 
 	return win.DefWindowProcW(window, message, wParam, lParam)
 }
-
 
 main :: proc() {
 	instance := win.HINSTANCE(win.GetModuleHandleW(nil)) // Create Instance
@@ -115,6 +213,5 @@ main :: proc() {
 			win.TranslateMessage(lpMsg = &message)
 			win.DispatchMessageW(lpMsg = &message)
 		}
-		
 	}
 }
