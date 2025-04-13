@@ -15,9 +15,9 @@ well enough to make a simple game. I am not trying to make it performant at this
 However, the code here does work. 
 
 The main resource used for figuring out how GDI works are:
- the win32 API official documentation: https://learn.microsoft.com/en-us/windows/win32/
- Odin language windows source code
- AI Tools
+- the win32 API official documentation: https://learn.microsoft.com/en-us/windows/win32/
+- Odin language windows source code
+- AI Tools
 
 Win32 API Official Documentation is really the best place to check for argument explinations. A more simplier explination can be found with AI Tools.
 The Odin bindings for win32 really show how it's implimented in Odin. I recommend just copying the procedure and just slotting in what's needed.
