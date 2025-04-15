@@ -7,8 +7,9 @@ import "base:runtime"
 
 import "core:fmt"
 import win "core:sys/windows"
-import "core:image"
-import "core:image/png"
+
+import stbi "vendor:stb/image"
+
 
 /*
 
@@ -33,7 +34,9 @@ import "core:image/png"
 // Globals
 running := true
 hBitmap:win.HBITMAP
-image_data:^image.Image
+image_data:[^]u8
+image_width:i32
+image_height:i32
 
 
 
@@ -56,27 +59,29 @@ window_event_proc :: proc "stdcall" (
 		case win.WM_CREATE:
 			// Upon window creation, load the bitmap image
 
-			err: image.Error
-			image_data, err = image.load_from_file("aesthetic.png") // Load png
+			// err: image.Error
+			// image_data, err = image.load_from_file("aesthetic.png") // Load png
 
-			// Check if there was an error loading the image
-			if err != nil {
-				fmt.println("Could not load image")
-			}
+			// // Check if there was an error loading the image
+			// if err != nil {
+			// 	fmt.println("Could not load image")
+			// }
 
+			image_data = stbi.load("./truth.jpg", &image_width, &image_height, nil, 4)
+			fmt.println(rawptr(image_data))
 
 			// Essentially, the GDI function: CreateDIBitmap -- which is uses to render our PNG after we convert it to a bitmap
 			// Expects the color value to be BGRA (Blue, Green, Red, Alpha), however,
 			// Typical PNGS are usually RGBA (Red, Green, Blue, Alpha)
 			// So this code will shift the RGBA values around to now be BGRA
 			// If left as normal; the image will be tinted blue
-			pixel_count := image_data.width * image_data.height
-			for i := 0; i < pixel_count; i += 1 {
+			pixel_count := image_width * image_height
+			for i:i32 = 0; i < pixel_count; i += i32(1) {
 			    base := i * 4
 			    // Swap the Red (index 0) and Blue (index 2) channels.
-			    temp := image_data.pixels.buf[base + 0];
-			    image_data.pixels.buf[base + 0] = image_data.pixels.buf[base + 2]
-			    image_data.pixels.buf[base + 2] = temp
+			    temp := image_data[base + 0];
+			    image_data[base + 0] = image_data[base + 2]
+			    image_data[base + 2] = temp
 			}
 
 			
@@ -99,8 +104,8 @@ window_event_proc :: proc "stdcall" (
 			pbmi := win.BITMAPINFO {
 				bmiHeader = {
 					biSize = size_of(win.BITMAPINFOHEADER),
-					biWidth = i32(image_data.width),
-					biHeight = i32(-image_data.height),
+					biWidth = i32(image_width),
+					biHeight = i32(-image_height),
 					biPlanes = 1,
 					biBitCount = 32,
 					biCompression = win.BI_RGB,
@@ -111,7 +116,7 @@ window_event_proc :: proc "stdcall" (
 			hdc = device_context,
 			pbmih = &pbmi.bmiHeader,
 			flInit = win.CBM_INIT ,
-			pjBits = raw_data(image_data.pixels.buf),
+			pjBits = rawptr(image_data),
 			pbmi = &pbmi,
 			iUsage = win.DIB_RGB_COLORS,
 			)
@@ -178,8 +183,8 @@ main :: proc() {
 		dwStyle = win.WS_OVERLAPPED | win.WS_VISIBLE | win.WS_SYSMENU,
 		X = 0,
 		Y = 0,
-		nWidth = 512,
-		nHeight = 362,
+		nWidth = 720,
+		nHeight = 713,
 		hWndParent = nil,
 		hMenu = nil,
 		hInstance = instance,
