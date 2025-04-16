@@ -115,7 +115,7 @@ main :: proc() {
 		style = win.CS_OWNDC | win.CS_HREDRAW | win.CS_VREDRAW,
 		lpfnWndProc = window_event_proc,
 		hInstance = instance,
-		lpszClassName = win.L("RectangleleWindowClass"),		
+		lpszClassName = win.L("LoadImageBMPClass"),		
 	}
 
 	win.RegisterClassW(lpWndClass = &window_class) // Register the class
@@ -124,7 +124,7 @@ main :: proc() {
 	window := win.CreateWindowExW(
 		dwExStyle = 0,
 		lpClassName = window_class.lpszClassName,
-		lpWindowName = win.L("Rectangle"),
+		lpWindowName = win.L("LoadImageBMP"),
 		dwStyle = win.WS_OVERLAPPED | win.WS_VISIBLE | win.WS_SYSMENU,
 		X = 0,
 		Y = 0,

@@ -6,13 +6,13 @@ All examples (unless specifically specified in the file) can be built and run us
 
 odin run .
 
-Please keep in mind this repository is being used as a learning dump for me to put finished examples in; meaning things I learn
+Please keep in mind this repository was being used as a learning dump for me to put finished examples in; meaning things I was learning
 are then placed in this repo not the actual learning process.
 
 It is not meant to be a tutorial repository, but can be if you're willing to put in the work to study the code and take notes.
 This code is not guarenteed to be the best or most performant approach for these tasks. That is by design; I am trying to figure how how GDI works,
-well enough to make a simple game. I am not trying to make it performant at this time (not that I know how to anyways).
-However, the code here does work. 
+
+The goal was to originally make a game with GDI but I have since decided against doing that as I want to move on to trying other things with Odin.
 
 The main resource used for figuring out how GDI works are:
 - the win32 API official documentation: https://learn.microsoft.com/en-us/windows/win32/
