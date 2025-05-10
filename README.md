@@ -12,7 +12,8 @@ are then placed in this repo not the actual learning process.
 It is not meant to be a tutorial repository, but can be if you're willing to put in the work to study the code and take notes.
 This code is not guarenteed to be the best or most performant approach for these tasks. That is by design; I am trying to figure how how GDI works,
 
-The goal was to originally make a game with GDI but I have since decided against doing that as I want to move on to trying other things with Odin.
+There is a game in here: GdiJankSnake -- but calling it a game is a stretch. More like the makings of a snake game, but very rough, buggy and very jank.
+I found it a fun learning project but don't intend of fully fleshing it out.
 
 The main resource used for figuring out how GDI works are:
 - the win32 API official documentation: https://learn.microsoft.com/en-us/windows/win32/
