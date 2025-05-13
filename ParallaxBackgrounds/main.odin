@@ -42,13 +42,14 @@ Parallax :: struct {
 DrawingBuffers :: struct {
 	back_buffer:win.HDC,
 	front_buffer:win.HDC,
-	hbitmap:win.HBITMAP,
+	hBitmap:win.HBITMAP,
 	parallax:[6]Parallax,
 }
 drawing_buffers:DrawingBuffers
 
 // Creating a 'blendfunction' struct for rendering alpha transparency
 blend_function:win.BLENDFUNCTION
+final_blend_function:win.BLENDFUNCTION
 
 
 // Structs
@@ -78,7 +79,7 @@ window_event_proc :: proc "stdcall" (
 			// When the window is destroyed
 			
 			win.DeleteDC(hdc = drawing_buffers.back_buffer) // removes the device context that was created in memory
-			win.DeleteObject(ho = cast(win.HGDIOBJ)drawing_buffers.hbitmap) // removes the bitmap
+			win.DeleteObject(ho = cast(win.HGDIOBJ)drawing_buffers.hBitmap) // removes the bitmap
 			win.ReleaseDC(hWnd = window, hDC = drawing_buffers.front_buffer)
 			
 			running = false
@@ -91,14 +92,30 @@ window_event_proc :: proc "stdcall" (
 			// For right now, single backbuffer for rendering to the screen; however, if doing paralax scrolling, should use multiple buffers
 			drawing_buffers.front_buffer = win.GetDC(hWnd = window) // Gets the main device context
 			drawing_buffers.back_buffer = win.CreateCompatibleDC(hdc = drawing_buffers.front_buffer)
-			drawing_buffers.hbitmap = win.CreateCompatibleBitmap(hdc = drawing_buffers.front_buffer, cx = win_rect.right, cy = win_rect.bottom)
+			drawing_buffers.hBitmap = win.CreateCompatibleBitmap(hdc = drawing_buffers.front_buffer, cx = win_rect.right, cy = win_rect.bottom)
+			win.SelectObject(hdc = drawing_buffers.back_buffer, h = cast(win.HGDIOBJ)drawing_buffers.hBitmap)
 
 
-			blend_function = { win.AC_SRC_OVER, 0, 128, 0 }; // 50% transparency	
+			blend_function = {
+				BlendOp = win.AC_SRC_OVER,
+				BlendFlags = 0,
+				SourceConstantAlpha = 255,
+				AlphaFormat = win.AC_SRC_ALPHA,
+			}
+			
+			final_blend_function = {
+				BlendOp = win.AC_SRC_OVER,
+				BlendFlags = 0,
+				SourceConstantAlpha = 255,
+				AlphaFormat = win.AC_SRC_ALPHA,
+			}
 
 			add_parallax_layer("images/sky.png", 5)
 			add_parallax_layer("images/far-mountains.png", 4)
-			
+			add_parallax_layer("images/far-trees.png", 3)
+			add_parallax_layer("images/middle-mountains.png", 2)
+			add_parallax_layer("images/myst.png", 1)
+			add_parallax_layer("images/near-trees.png", 0)
 		case win.WM_PAINT:
 			// The event for painting to the window
 			paint: win.PAINTSTRUCT
@@ -140,7 +157,7 @@ window_event_proc :: proc "stdcall" (
 					// )
 
 					if result == false {
-						fmt.printf("Could not display parallax image: %v\n", i.filename)
+						fmt.printf("Result: %v: Could not display parallax image: %v\n", result,i.filename)
 					}
 
 				}
@@ -148,31 +165,33 @@ window_event_proc :: proc "stdcall" (
 
 			// win.SelectObject(hdc = device_context, h = cast(win.HGDIOBJ)i.hBitmap)
 
-			// result := win.BitBlt(
-			// 	hdc = device_context,
-			// 	x = 0,
-			// 	y = 0,
-			// 	cx = 320,
-			// 	cy = 240,
+			result := win.BitBlt(
+				hdc = device_context,
+				x = 0,
+				y = 0,
+				cx = 320,
+				cy = 240,
+				hdcSrc = drawing_buffers.back_buffer,
+				x1 = 0,
+				y1 =0,
+				rop = win.SRCCOPY
+			)
+
+			// result := win.GdiAlphaBlend(
+			// 	hdcDest = device_context,
+			// 	xoriginDest = 0,
+			// 	yoriginDest = 0,
+			// 	wDest = 320,
+			// 	hDest = 240,
 			// 	hdcSrc = drawing_buffers.back_buffer,
-			// 	x1 = 0,
-			// 	y1 =0,
-			// 	rop = win.SRCCOPY
+			// 	xoriginSrc = 0,
+			// 	yoriginSrc = 0,
+			// 	wSrc = 320,
+			// 	hSrc = 240,
+			// 	ftn = blend_function
 			// )
 
-			result := win.GdiAlphaBlend(
-				hdcDest = device_context,
-				xoriginDest = 0,
-				yoriginDest = 0,
-				wDest = 320,
-				hDest = 240,
-				hdcSrc = drawing_buffers.back_buffer,
-				xoriginSrc = 0,
-				yoriginSrc = 0,
-				wSrc = 320,
-				hSrc = 240,
-				ftn = blend_function
-			)
+
 			if result == false {
 				fmt.printf("Could not display final image\n")
 			}
@@ -258,9 +277,9 @@ add_parallax_layer :: proc(filename:string, layer:int) {
 	}
 
 	drawing_buffers.parallax[layer].filename = filename
-	drawing_buffers.parallax[layer].hdc = drawing_buffers.back_buffer
+	// drawing_buffers.parallax[layer].hdc = drawing_buffers.back_buffer
 	// drawing_buffers.parallax[layer].hdc = drawing_buffers.front_buffer
-	// drawing_buffers.parallax[layer].hdc = win.CreateCompatibleDC(hdc = drawing_buffers.front_buffer)
+	drawing_buffers.parallax[layer].hdc = win.CreateCompatibleDC(hdc = drawing_buffers.front_buffer)
 	drawing_buffers.parallax[layer].hBitmap = load_image(filename)
 
 	if drawing_buffers.parallax[layer].hBitmap == nil {
