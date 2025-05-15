@@ -12,8 +12,6 @@ import "core:image/png"
 
 	This is an example on how to do parallax backgrounds in GDI
 	Game runs at a fixed timestamp / speed; no variable deltatime
-
-	
 */
 
 // Globals
@@ -21,8 +19,6 @@ running := true // Exiting main loop (which in turn leads to exiting application
 win_rect:win.RECT = {left = 0, top = 0, right = 320, bottom = 240} // Window borders
 parallax_root:string
 parallax_base_offset:f64
-frame_counter:i32 // used to count 60 fps
-max_frame_counter:i32
 
 
 Timestamp :: struct {
@@ -41,8 +37,8 @@ Parallax :: struct {
 	hBitmap:win.HBITMAP,
 	filename:string,
 	bitmap:win.BITMAP,
-	speed:i32,
-	x_pos:i32,
+	speed:f64,
+	pos:[2]f64,
 }
 
 DrawingBuffers :: struct {
@@ -93,8 +89,6 @@ window_event_proc :: proc "stdcall" (
 			/*On window creation*/
 			set_defaults()
 
-			max_frame_counter = 600 // Max number of times the frame counter ticks up before it's reset to 0 
-
 			// For right now, single backbuffer for rendering to the screen; however, if doing paralax scrolling, should use multiple buffers
 			drawing_buffers.front_buffer = win.GetDC(hWnd = window) // Gets the main device context
 			drawing_buffers.back_buffer = win.CreateCompatibleDC(hdc = drawing_buffers.front_buffer)
@@ -109,12 +103,12 @@ window_event_proc :: proc "stdcall" (
 				AlphaFormat = win.AC_SRC_ALPHA,
 			}
 			
-			add_parallax_layer(filename = "images/sky.png", layer = 5, speed = 0, x_pos = 0)
-			add_parallax_layer(filename = "images/far-mountains.png", layer = 4, speed = 0, x_pos = 0)
-			add_parallax_layer(filename = "images/middle-mountains.png", layer = 3, speed = 0, x_pos = 0)
-			add_parallax_layer(filename = "images/far-trees.png", layer = 2, speed = 0, x_pos = 0)
-			add_parallax_layer(filename = "images/myst.png", layer = 1, speed = 1, x_pos = 0)
-			add_parallax_layer(filename = "images/near-trees.png", layer = 0, speed = 400, x_pos = 0)
+			add_parallax_layer(filename = "images/sky.png", layer = 5, speed = 0)
+			add_parallax_layer(filename = "images/far-mountains.png", layer = 4, speed = 0)
+			add_parallax_layer(filename = "images/middle-mountains.png", layer = 3, speed = 0)
+			add_parallax_layer(filename = "images/far-trees.png", layer = 2, speed = 0)
+			add_parallax_layer(filename = "images/myst.png", layer = 1, speed = 0.005)
+			add_parallax_layer(filename = "images/near-trees.png", layer = 0, speed = 0.007)
 			
 		case win.WM_PAINT:
 			// The event for painting to the window
@@ -132,7 +126,7 @@ window_event_proc :: proc "stdcall" (
 					
 					result := win.AlphaBlend(
 						hdcDest = drawing_buffers.back_buffer,
-						xoriginDest = i.x_pos,
+						xoriginDest = i32(i.pos.x),
 						yoriginDest = 0,
 						wDest = 320,
 						hDest = 240,
@@ -268,7 +262,7 @@ load_image :: proc(filename:string) -> win.HBITMAP {
 	return hBitmap
 }
 
-add_parallax_layer :: proc(filename:string, layer:int, speed:i32, x_pos:i32) {
+add_parallax_layer :: proc(filename:string, layer:int, speed:f64) {
 	/*Adds the image to drawing_buffers.parallax at index 'layer'
 	layer 0 is closest to the player, the higher then number, the farther back it is.*/
 	if layer > len(drawing_buffers.parallax){
@@ -277,12 +271,9 @@ add_parallax_layer :: proc(filename:string, layer:int, speed:i32, x_pos:i32) {
 	}
 
 	drawing_buffers.parallax[layer].filename = filename
-	// drawing_buffers.parallax[layer].hdc = drawing_buffers.back_buffer
-	// drawing_buffers.parallax[layer].hdc = drawing_buffers.front_buffer
 	drawing_buffers.parallax[layer].hdc = win.CreateCompatibleDC(hdc = drawing_buffers.front_buffer)
 	drawing_buffers.parallax[layer].hBitmap = load_image(filename)
-	drawing_buffers.parallax[layer].speed = speed
-	drawing_buffers.parallax[layer].x_pos = x_pos
+	drawing_buffers.parallax[layer].speed = speed	
 	
 	if drawing_buffers.parallax[layer].hBitmap == nil {
         fmt.printf("Failed to load image: %s\n", filename)
@@ -295,8 +286,6 @@ add_parallax_layer :: proc(filename:string, layer:int, speed:i32, x_pos:i32) {
     	c = size_of(win.BITMAP), 
      	pv = &drawing_buffers.parallax[layer].bitmap
     )
-	 
-	// win.SelectObject(hdc = drawing_buffers.back_buffer, h = cast(win.HGDIOBJ)drawing_buffers.parallax[layer].hbitmap)
 }
 
 get_current_time :: proc() -> win.LARGE_INTEGER{
@@ -334,26 +323,16 @@ set_defaults :: proc(){
 
 update :: proc(deltatime:f64) {
 
-	frame_counter += 1
-
-
 	#reverse for &layer in drawing_buffers.parallax {
 		if layer.speed > 0 {
-			// if frame_counter == layer.speed {
-				layer.x_pos += 1 * layer.speed * i32(deltatime)
-				fmt.printf("%v: %v\n", layer.filename, layer.x_pos)
-
-				if layer.x_pos > 320 {
-					layer.x_pos = 0
-				}
-			// }
+			layer.pos.x += layer.speed * deltatime
+			// layer.speed *= deltatime
+			fmt.printf("%v: %v\n", layer.filename,i32(layer.pos.x))
+			// fmt.printf("%v: %v: %v\n", layer.filename,layer.speed, layer.speed + deltatime)
 		}
 	}
 
-	if frame_counter == max_frame_counter {
-		frame_counter = 0
-	}
-
+	
 		
 	/*Update Loop / Game Loop*/
 	// player.pos.x += player.speed * deltatime
