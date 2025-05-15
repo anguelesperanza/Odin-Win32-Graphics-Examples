@@ -8,22 +8,16 @@ import "core:image/png"
 
 
 /*
-	Parallax Backgrounds / Scrolling
+	This is an example on how to render multiple images on top of one each other but with semi(partial) transparency.
+	This runs at a fixed timestamp / speed; no variable deltatime
 
-	This is an example on how to do parallax backgrounds in GDI
-	Game runs at a fixed timestamp / speed; no variable deltatime
-
-	
+	Art comes from itch.io:	https://ansimuz.itch.io/mountain-dusk-parallax-background
 */
 
 // Globals
 running := true // Exiting main loop (which in turn leads to exiting application)
 win_rect:win.RECT = {left = 0, top = 0, right = 320, bottom = 240} // Window borders
 parallax_root:string
-parallax_base_offset:f64
-frame_counter:i32 // used to count 60 fps
-max_frame_counter:i32
-
 
 Timestamp :: struct {
 	fixed_timestamp:f64,
@@ -41,8 +35,7 @@ Parallax :: struct {
 	hBitmap:win.HBITMAP,
 	filename:string,
 	bitmap:win.BITMAP,
-	speed:i32,
-	x_pos:i32,
+	blend:win.BLENDFUNCTION,
 }
 
 DrawingBuffers :: struct {
@@ -52,9 +45,6 @@ DrawingBuffers :: struct {
 	parallax:[6]Parallax,
 }
 drawing_buffers:DrawingBuffers
-
-// Creating a 'blendfunction' struct for rendering alpha transparency
-blend_function:win.BLENDFUNCTION
 
 // Structs
 Player :: struct {
@@ -93,28 +83,20 @@ window_event_proc :: proc "stdcall" (
 			/*On window creation*/
 			set_defaults()
 
-			max_frame_counter = 600 // Max number of times the frame counter ticks up before it's reset to 0 
-
-			// For right now, single backbuffer for rendering to the screen; however, if doing paralax scrolling, should use multiple buffers
 			drawing_buffers.front_buffer = win.GetDC(hWnd = window) // Gets the main device context
 			drawing_buffers.back_buffer = win.CreateCompatibleDC(hdc = drawing_buffers.front_buffer)
 			drawing_buffers.hBitmap = win.CreateCompatibleBitmap(hdc = drawing_buffers.front_buffer, cx = win_rect.right, cy = win_rect.bottom)
 			win.SelectObject(hdc = drawing_buffers.back_buffer, h = cast(win.HGDIOBJ)drawing_buffers.hBitmap)
 
+			blend:win.BLENDFUNCTION = {BlendOp = win.AC_SRC_OVER,BlendFlags = 0,SourceConstantAlpha = 255,AlphaFormat = win.AC_SRC_ALPHA}
+			semi_blend:win.BLENDFUNCTION = {BlendOp = win.AC_SRC_OVER,BlendFlags = 0,SourceConstantAlpha = 128,AlphaFormat = win.AC_SRC_ALPHA}
 
-			blend_function = {
-				BlendOp = win.AC_SRC_OVER,
-				BlendFlags = 0,
-				SourceConstantAlpha = 255,
-				AlphaFormat = win.AC_SRC_ALPHA,
-			}
-			
-			add_parallax_layer(filename = "images/sky.png", layer = 5, speed = 0, x_pos = 0)
-			add_parallax_layer(filename = "images/far-mountains.png", layer = 4, speed = 0, x_pos = 0)
-			add_parallax_layer(filename = "images/middle-mountains.png", layer = 3, speed = 0, x_pos = 0)
-			add_parallax_layer(filename = "images/far-trees.png", layer = 2, speed = 0, x_pos = 0)
-			add_parallax_layer(filename = "images/myst.png", layer = 1, speed = 1, x_pos = 0)
-			add_parallax_layer(filename = "images/near-trees.png", layer = 0, speed = 400, x_pos = 0)
+			add_parallax_layer(filename = "images/sky.png", layer = 5,blend = blend)
+			add_parallax_layer(filename = "images/far-mountains.png", layer = 4,blend = blend)
+			add_parallax_layer(filename = "images/middle-mountains.png", layer = 3,blend = blend)
+			add_parallax_layer(filename = "images/far-trees.png", layer = 2,blend = blend)
+			add_parallax_layer(filename = "images/near-trees.png", layer = 1,blend = blend)
+			add_parallax_layer(filename = "images/myst.png", layer = 0,blend = semi_blend)
 			
 		case win.WM_PAINT:
 			// The event for painting to the window
@@ -132,7 +114,7 @@ window_event_proc :: proc "stdcall" (
 					
 					result := win.AlphaBlend(
 						hdcDest = drawing_buffers.back_buffer,
-						xoriginDest = i.x_pos,
+						xoriginDest = 0,
 						yoriginDest = 0,
 						wDest = 320,
 						hDest = 240,
@@ -141,29 +123,14 @@ window_event_proc :: proc "stdcall" (
 						yoriginSrc = 0,
 						wSrc = 320,
 						hSrc = 240,
-						ftn = blend_function
+						ftn = i.blend
 					)
 
 					if result == false {
 						fmt.printf("Result: %v: Could not display parallax image: %v\n", result,i.filename)
 					}
-					
-					// result := win.BitBlt(
-					// 	hdc = drawing_buffers.back_buffer,
-					// 	x = 0,
-					// 	y = 0,
-					// 	cx = 320,
-					// 	cy = 240,
-					// 	hdcSrc = i.hdc,
-					// 	x1 = 0,
-					// 	y1 =0,
-					// 	rop = win.SRCCOPY
-					// )
-
 				}
 			}
-
-			// win.SelectObject(hdc = device_context, h = cast(win.HGDIOBJ)i.hBitmap)
 
 			result := win.BitBlt(
 				hdc = device_context,
@@ -188,7 +155,7 @@ window_event_proc :: proc "stdcall" (
 			// 	yoriginSrc = 0,
 			// 	wSrc = 320,
 			// 	hSrc = 240,
-			// 	ftn = blend_function
+			// 	ftn = {BlendOp = win.AC_SRC_OVER,BlendFlags = 0,SourceConstantAlpha = 255,AlphaFormat = win.AC_SRC_ALPHA}
 			// )
 
 
@@ -268,7 +235,7 @@ load_image :: proc(filename:string) -> win.HBITMAP {
 	return hBitmap
 }
 
-add_parallax_layer :: proc(filename:string, layer:int, speed:i32, x_pos:i32) {
+add_parallax_layer :: proc(filename:string, layer:int, blend:win.BLENDFUNCTION) {
 	/*Adds the image to drawing_buffers.parallax at index 'layer'
 	layer 0 is closest to the player, the higher then number, the farther back it is.*/
 	if layer > len(drawing_buffers.parallax){
@@ -281,8 +248,8 @@ add_parallax_layer :: proc(filename:string, layer:int, speed:i32, x_pos:i32) {
 	// drawing_buffers.parallax[layer].hdc = drawing_buffers.front_buffer
 	drawing_buffers.parallax[layer].hdc = win.CreateCompatibleDC(hdc = drawing_buffers.front_buffer)
 	drawing_buffers.parallax[layer].hBitmap = load_image(filename)
-	drawing_buffers.parallax[layer].speed = speed
-	drawing_buffers.parallax[layer].x_pos = x_pos
+	drawing_buffers.parallax[layer].blend = blend
+	
 	
 	if drawing_buffers.parallax[layer].hBitmap == nil {
         fmt.printf("Failed to load image: %s\n", filename)
@@ -295,8 +262,6 @@ add_parallax_layer :: proc(filename:string, layer:int, speed:i32, x_pos:i32) {
     	c = size_of(win.BITMAP), 
      	pv = &drawing_buffers.parallax[layer].bitmap
     )
-	 
-	// win.SelectObject(hdc = drawing_buffers.back_buffer, h = cast(win.HGDIOBJ)drawing_buffers.parallax[layer].hbitmap)
 }
 
 get_current_time :: proc() -> win.LARGE_INTEGER{
@@ -310,61 +275,10 @@ get_current_time :: proc() -> win.LARGE_INTEGER{
 set_defaults :: proc(){
 	/*Run before main function to setup defaults for world objects/player*/
 	fmt.println("Setting Defaults")
-	parallax_base_offset = 0
-
-
-	// Setting up Player
-	player.rect = {
-		left = i32(player.pos.x),
-		top = i32(player.pos.y),
-		right = i32(player.pos.x) + 32,
-		bottom = i32(player.pos.y) + 64
-	} // Sets up the rectangle
-	player.speed = 0.01
-	
-	// player.color = win.RGB(r = 200, g = 100, b = 50) // Sets up the color of the rectangle
-	player.color = win.RGB(r = 255, g = 0, b = 0) // Sets up the color of the rectangle
-	player.brush = win.CreateSolidBrush(color = player.color) // Sets up the brush hande used color the rectangle
-	
-	parallax_root = "./images/"
-
-
-	// blend_function = { win.AC_SRC_OVER, 0, 128, 0 }; // 50% transparency	
 }
 
 update :: proc(deltatime:f64) {
 
-	frame_counter += 1
-
-
-	#reverse for &layer in drawing_buffers.parallax {
-		if layer.speed > 0 {
-			// if frame_counter == layer.speed {
-				layer.x_pos += 1 * layer.speed * i32(deltatime)
-				fmt.printf("%v: %v\n", layer.filename, layer.x_pos)
-
-				if layer.x_pos > 320 {
-					layer.x_pos = 0
-				}
-			// }
-		}
-	}
-
-	if frame_counter == max_frame_counter {
-		frame_counter = 0
-	}
-
-		
-	/*Update Loop / Game Loop*/
-	// player.pos.x += player.speed * deltatime
-	// player.rect = {
-	// 	left = i32(player.pos.x),
-	// 	top = i32(player.pos.y),
-	// 	right = i32(player.pos.x) + 32,
-	// 	bottom = i32(player.pos.y) + 64
-	// } // Updates the player's position and rectangle
-
-	// fmt.println(player.rect)
 }
 
 main :: proc() {
@@ -375,7 +289,7 @@ main :: proc() {
 		style = win.CS_OWNDC | win.CS_HREDRAW | win.CS_VREDRAW,
 		lpfnWndProc = window_event_proc, // [] created callback function
 		hInstance = instance,
-		lpszClassName = win.L("ParallaxWindowClass"),		
+		lpszClassName = win.L("SemiTransparentImageLayeringWindowClass"),		
 	}
 
 	win.RegisterClassW(lpWndClass = &window_class) // Register the class
@@ -385,7 +299,7 @@ main :: proc() {
 	window := win.CreateWindowExW(
 		dwExStyle = 0,
 		lpClassName = window_class.lpszClassName,
-		lpWindowName = win.L("Parallax Backgrounds"),
+		lpWindowName = win.L("Layering Images with Semi-transparent pixels "),
 		dwStyle = win.WS_OVERLAPPED | win.WS_VISIBLE | win.WS_SYSMENU,
 		X = 0,
 		Y = 0,
