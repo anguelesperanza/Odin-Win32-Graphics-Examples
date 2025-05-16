@@ -40,6 +40,7 @@ Parallax :: struct {
 	speed:f64,
 	pos:[2]f64,
 	offset_x:f64,
+	blend:win.BLENDFUNCTION,
 }
 
 DrawingBuffers :: struct {
@@ -49,9 +50,6 @@ DrawingBuffers :: struct {
 	parallax:[6]Parallax,
 }
 drawing_buffers:DrawingBuffers
-
-// Creating a 'blendfunction' struct for rendering alpha transparency
-blend_function:win.BLENDFUNCTION
 
 // Structs
 Player :: struct {
@@ -96,21 +94,16 @@ window_event_proc :: proc "stdcall" (
 			drawing_buffers.hBitmap = win.CreateCompatibleBitmap(hdc = drawing_buffers.front_buffer, cx = win_rect.right, cy = win_rect.bottom)
 			win.SelectObject(hdc = drawing_buffers.back_buffer, h = cast(win.HGDIOBJ)drawing_buffers.hBitmap)
 
+			blend:win.BLENDFUNCTION = {BlendOp = win.AC_SRC_OVER,BlendFlags = 0,SourceConstantAlpha = 255,AlphaFormat = win.AC_SRC_ALPHA}
+			semi_blend:win.BLENDFUNCTION = {BlendOp = win.AC_SRC_OVER,BlendFlags = 0,SourceConstantAlpha = 128,AlphaFormat = win.AC_SRC_ALPHA}
+			
+			add_parallax_layer(filename = "images/sky.png", layer = 5, speed = 0, blend = blend)
+			add_parallax_layer(filename = "images/far-mountains.png", layer = 4, speed = 0, blend = blend)
+			add_parallax_layer(filename = "images/middle-mountains.png", layer = 3, speed = 0.000007, blend = blend)
+			add_parallax_layer(filename = "images/far-trees.png", layer = 2, speed = 0.000006, blend = blend)
+			add_parallax_layer(filename = "images/near-trees.png", layer = 1, speed = 0.0005, blend = blend)
+			add_parallax_layer(filename = "images/myst.png", layer = 0, speed =  0.0017, blend = semi_blend)
 
-			blend_function = {
-				BlendOp = win.AC_SRC_OVER,
-				BlendFlags = 0,
-				SourceConstantAlpha = 255,
-				AlphaFormat = win.AC_SRC_ALPHA,
-			}
-			
-			add_parallax_layer(filename = "images/sky.png", layer = 5, speed = 0)
-			add_parallax_layer(filename = "images/far-mountains.png", layer = 4, speed = 0)
-			add_parallax_layer(filename = "images/middle-mountains.png", layer = 3, speed = 0.000007)
-			add_parallax_layer(filename = "images/far-trees.png", layer = 2, speed = 0.000006)
-			add_parallax_layer(filename = "images/myst.png", layer = 1, speed = 0.0005)
-			add_parallax_layer(filename = "images/near-trees.png", layer = 0, speed = 0.0017)
-			
 		case win.WM_PAINT:
 			// The event for painting to the window
 			paint: win.PAINTSTRUCT
@@ -146,7 +139,7 @@ window_event_proc :: proc "stdcall" (
 						yoriginSrc = 0,
 						wSrc = 320,
 						hSrc = 240,
-						ftn = blend_function
+						ftn = i.blend
 					)
 					result = win.AlphaBlend(
 						hdcDest = drawing_buffers.back_buffer,
@@ -159,7 +152,7 @@ window_event_proc :: proc "stdcall" (
 						yoriginSrc = 0,
 						wSrc = 320,
 						hSrc = 240,
-						ftn = blend_function
+						ftn = i.blend
 					)
 
 					if result == false {
@@ -257,7 +250,7 @@ load_image :: proc(filename:string) -> win.HBITMAP {
 	return hBitmap
 }
 
-add_parallax_layer :: proc(filename:string, layer:int, speed:f64) {
+add_parallax_layer :: proc(filename:string, layer:int, speed:f64, blend:win.BLENDFUNCTION) {
 	/*Adds the image to drawing_buffers.parallax at index 'layer'
 	layer 0 is closest to the player, the higher then number, the farther back it is.*/
 	if layer > len(drawing_buffers.parallax){
@@ -269,7 +262,8 @@ add_parallax_layer :: proc(filename:string, layer:int, speed:f64) {
 	drawing_buffers.parallax[layer].hdc = win.CreateCompatibleDC(hdc = drawing_buffers.front_buffer)
 	drawing_buffers.parallax[layer].hBitmap = load_image(filename)
 	drawing_buffers.parallax[layer].speed = speed
-	
+	drawing_buffers.parallax[layer].blend = blend
+
 	if drawing_buffers.parallax[layer].hBitmap == nil {
         fmt.printf("Failed to load image: %s\n", filename)
         return
@@ -315,8 +309,6 @@ set_defaults :: proc(){
 	
 	parallax_root = "./images/"
 
-
-	// blend_function = { win.AC_SRC_OVER, 0, 128, 0 }; // 50% transparency	
 }
 
 update :: proc(deltatime:f64) {
@@ -325,24 +317,8 @@ update :: proc(deltatime:f64) {
 		if layer.speed > 0 {
 			layer.pos.x -= layer.speed * deltatime
 			layer.offset_x -= layer.speed * deltatime
-			// layer.speed *= deltatime
-			// fmt.printf("%v: %v\n", layer.filename,(layer.pos.x))
-			// fmt.printf("%v: %v: %v\n", layer.filename,layer.speed, layer.speed + deltatime)
 		}
 	}
-
-	
-		
-	/*Update Loop / Game Loop*/
-	// player.pos.x += player.speed * deltatime
-	// player.rect = {
-	// 	left = i32(player.pos.x),
-	// 	top = i32(player.pos.y),
-	// 	right = i32(player.pos.x) + 32,
-	// 	bottom = i32(player.pos.y) + 64
-	// } // Updates the player's position and rectangle
-
-	// fmt.println(player.rect)
 }
 
 main :: proc() {
