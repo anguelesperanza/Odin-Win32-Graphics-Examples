@@ -1,6 +1,13 @@
 Hello,
 
-This is a repo of examples on how to render graphics using the win32 GDI api and the Odin language.
+-- Update to repository: 9/10/2025
+
+Originally this was a repository for just win32 GDI examples in Odin, however, as I used more win32, I needed a place to put more
+learning examples, and decided to repose this into a more general win32 odin examples repo
+
+The GDI examples still remain, and now there is a few more.
+
+-- End of Update to repository: 9/10/2025
 
 All examples (unless specifically specified in the file) can be built and run using:
 
@@ -15,7 +22,7 @@ This code is not guarenteed to be the best or most performant approach for these
 There is a game in here: GdiJankSnake -- but calling it a game is a stretch. More like the makings of a snake game, but very rough, buggy and very jank.
 I found it a fun learning project but don't intend of fully fleshing it out.
 
-The main resource used for figuring out how GDI works are:
+The main resource used for figuring out how Win32 works are:
 - the win32 API official documentation: https://learn.microsoft.com/en-us/windows/win32/
 - Odin language windows source code
 - AI Tools
