@@ -1,13 +1,16 @@
+
 package maing
 
 import "core:fmt"
 import win "core:sys/windows"
 import "base:runtime"
 
-
+import stbi "vendor:stb/image"
 
 // Globals
 running := true
+hBitmap:win.HBITMAP
+
 
 // Callback function for handling events
 window_event_proc :: proc "stdcall" (
@@ -26,7 +29,29 @@ window_event_proc :: proc "stdcall" (
 		case win.WM_ACTIVATEAPP:
 			win.OutputDebugStringW(win.L("WM_ACTIVATEAPP\n"))
 		case win.WM_CREATE:
-			win.OutputDebugStringW(win.L("WM_CREATE\n"))
+			// Upon window creation, load the bitmap image
+
+
+			// IMPORTANT NOTE: If loading a .bmp file and hBItmap is still nil / 0x0 but win.GetLastError() returns 0
+			// Open .bmp in paint and save as a 24 color bmp. Sometimes. the .bmp image was created using a compression algorithm
+			// that win.LoadImageW(...) doesn't support.			
+			hBitmap = cast(win.HBITMAP)win.LoadImageW(
+				hInst = nil,
+				name = win.L("mlg.bmp"),
+				type = win.IMAGE_BITMAP,
+				cx = 0,
+				cy = 0,
+				fuLoad = win.LR_LOADFROMFILE | win.LR_CREATEDIBSECTION
+			)
+
+			// If the image could not be loaded, then print out the last error
+			// That error can be checked here under System Error Codes: https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes
+			if hBitmap == nil {
+				fmt.println("Could not create bitmap")
+				fmt.println(hBitmap)
+				fmt.println(win.GetLastError())
+			}
+			
 		case win.WM_PAINT:
 			// The event for painting to the window
 			paint: win.PAINTSTRUCT
@@ -38,44 +63,37 @@ window_event_proc :: proc "stdcall" (
 
 			win.PatBlt(device_context, x, y, width, height, win.BLACKNESS) // Drawing the background color of the window
 
-			// Vertices for the triangle -- The points that make up the triange
-			vertex: [3]win.TRIVERTEX = {
-				{150, 0, 0xff00, 0x8000, 0x0000, 0x0000},
-				{0, 150, 0x9000, 0x0000, 0x9000, 0x0000},
-				{300, 150, 0x9000, 0x0000, 0x9000, 0x0000},
-			}
+			hdc_memory := win.CreateCompatibleDC(hdc = device_context)
 
-			gTriangle:win.GRADIENT_TRIANGLE = {
-				Vertex1 = 0,
-				Vertex2 = 1,
-				Vertex3 = 2,
-			}
-			
-			win.GdiGradientFill(
-				hdc = device_context,
-				pVertex = raw_data(&vertex),
-				nVertex = 3,
-				pMesh = &gTriangle,
-				nCount = 1,
-				ulMode = win.GRADIENT_FILL_TRIANGLE,
-			) // Draw triangle
+			hOldBitmap:win.HBITMAP = cast(win.HBITMAP)win.SelectObject(hdc = hdc_memory, h = cast(win.HGDIOBJ)hBitmap)
+			bm:win.BITMAP
 
+			win.GetObjectW(h = cast(win.HANDLE)hBitmap, c = size_of(win.BITMAP), pv = &bm)
 
-			
+			// Instead of using BitBlt, use StretchBlt and define the wDest and hDest to be the resize target
+			win.StretchBlt(
+				hdcDest = device_context,
+				xDest = 0,
+				yDest = 0,
+				wDest = 640,
+				hDest = 480,
+				hdcSrc = hdc_memory,
+				xSrc = 0,
+				ySrc = 0,
+				wSrc = bm.bmWidth,
+				hSrc = bm.bmHeight,
+				rop = win.SRCCOPY,
+			)
+
+			win.SelectObject(hdc = hdc_memory, h = cast(win.HGDIOBJ)hOldBitmap)
+			win.DeleteDC(hdc = hdc_memory)
 			win.EndPaint(hWnd = window, lpPaint = &paint)
+
 		case win.WM_KEYDOWN:
 			// The event for handling key presses (like escape, shift, etc)
 			switch wParam {
 				case win.VK_ESCAPE:
 					running = false
-			}
-
-		case win.WM_CHAR:
-			// The event for k presses (like, w,a,s,d etc)
-			switch(wParam) {
-				case:
-					key := win.GET_KEYSTATE_WPARAM(wParam = wParam)
-					fmt.println(rune(key))
 			}
 	}
 
@@ -89,9 +107,9 @@ main :: proc() {
 	// create window class
 	window_class := win.WNDCLASSW {
 		style = win.CS_OWNDC | win.CS_HREDRAW | win.CS_VREDRAW,
-		lpfnWndProc = window_event_proc, // [] created callback function
+		lpfnWndProc = window_event_proc,
 		hInstance = instance,
-		lpszClassName = win.L("TriangleWindowClass"),		
+		lpszClassName = win.L("RectangleleWindowClass"),		
 	}
 
 	win.RegisterClassW(lpWndClass = &window_class) // Register the class
@@ -100,7 +118,7 @@ main :: proc() {
 	window := win.CreateWindowExW(
 		dwExStyle = 0,
 		lpClassName = window_class.lpszClassName,
-		lpWindowName = win.L("Triangle"),
+		lpWindowName = win.L("Rectangle"),
 		dwStyle = win.WS_OVERLAPPED | win.WS_VISIBLE | win.WS_SYSMENU,
 		X = 0,
 		Y = 0,

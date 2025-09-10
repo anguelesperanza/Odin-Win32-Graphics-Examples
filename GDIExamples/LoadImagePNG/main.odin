@@ -143,15 +143,6 @@ window_event_proc :: proc "stdcall" (
 				case win.VK_ESCAPE:
 					running = false
 			}
-
-		case win.WM_CHAR:
-			// The event for k presses (like, w,a,s,d etc)
-			switch(wParam) {
-				case:
-					key := win.GET_KEYSTATE_WPARAM(wParam = wParam)
-					fmt.println(rune(key))
-					fmt.println(hBitmap)
-			}
 	}
 
 	return win.DefWindowProcW(window, message, wParam, lParam)

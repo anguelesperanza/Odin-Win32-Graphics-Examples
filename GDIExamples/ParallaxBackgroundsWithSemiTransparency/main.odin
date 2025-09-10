@@ -187,16 +187,7 @@ window_event_proc :: proc "stdcall" (
 					running = false
 			}
 
-		case win.WM_CHAR:
-			// The event for k presses (like, w,a,s,d etc)
-			switch(wParam) {
-				case:
-					key := win.GET_KEYSTATE_WPARAM(wParam = wParam)
-					switch key {
-						case ' ': // Spacebar was pressed
-						fmt.println("Space was pressed")
-					}
-			}
+
 	}
 
 	return win.DefWindowProcW(window, message, wParam, lParam)

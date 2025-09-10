@@ -1,15 +1,42 @@
 
+
 package maing
+
+
+import "base:runtime"
 
 import "core:fmt"
 import win "core:sys/windows"
-import "base:runtime"
 
 import stbi "vendor:stb/image"
+
+
+/*
+
+	NOTE: 9/20/2025: This was written before JPEG support in core, so it uses stb in the vendor package instead
+
+	This file loads an .jpg
+	GDI only works with .bmp files so the goal here is to load the image
+	using not using GDI and then convert that image into a .bmp to then be displayed.
+
+	Then this image data will be converted into a .bmp using the win32 api
+	"CreateDIBitmap"
+
+	WIC is not used as there are not full bindings for WIC in Odin. CoCreateInstance is there and
+	but I couldn't find much else and didn't want to write WIC bindings at 5:30 in the morning.
+	If there are full bindings, I cannot find them.
+
+	Reference: https://github.com/karl-zylinski/odin-win32-software-rendering/blob/main/win32_software_rendering.odin
+
+*/
 
 // Globals
 running := true
 hBitmap:win.HBITMAP
+image_data:[^]u8
+image_width:i32
+image_height:i32
+
 
 
 // Callback function for handling events
@@ -30,27 +57,22 @@ window_event_proc :: proc "stdcall" (
 			win.OutputDebugStringW(win.L("WM_ACTIVATEAPP\n"))
 		case win.WM_CREATE:
 			// Upon window creation, load the bitmap image
+			image_data = stbi.load("./truth.jpg", &image_width, &image_height, nil, 4)
 
-
-			// IMPORTANT NOTE: If loading a .bmp file and hBItmap is still nil / 0x0 but win.GetLastError() returns 0
-			// Open .bmp in paint and save as a 24 color bmp. Sometimes. the .bmp image was created using a compression algorithm
-			// that win.LoadImageW(...) doesn't support.			
-			hBitmap = cast(win.HBITMAP)win.LoadImageW(
-				hInst = nil,
-				name = win.L("mlg.bmp"),
-				type = win.IMAGE_BITMAP,
-				cx = 0,
-				cy = 0,
-				fuLoad = win.LR_LOADFROMFILE | win.LR_CREATEDIBSECTION
-			)
-
-			// If the image could not be loaded, then print out the last error
-			// That error can be checked here under System Error Codes: https://learn.microsoft.com/en-us/windows/win32/debug/system-error-codes
-			if hBitmap == nil {
-				fmt.println("Could not create bitmap")
-				fmt.println(hBitmap)
-				fmt.println(win.GetLastError())
+			// Essentially, the GDI function: CreateDIBitmap -- which is uses to render our PNG after we convert it to a bitmap
+			// Expects the color value to be BGRA (Blue, Green, Red, Alpha), however,
+			// Typical PNGS are usually RGBA (Red, Green, Blue, Alpha)
+			// So this code will shift the RGBA values around to now be BGRA
+			// If left as normal; the image will be tinted blue
+			pixel_count := image_width * image_height
+			for i:i32 = 0; i < pixel_count; i += i32(1) {
+			    base := i * 4
+			    // Swap the Red (index 0) and Blue (index 2) channels.
+			    temp := image_data[base + 0];
+			    image_data[base + 0] = image_data[base + 2]
+			    image_data[base + 2] = temp
 			}
+
 			
 		case win.WM_PAINT:
 			// The event for painting to the window
@@ -64,25 +86,45 @@ window_event_proc :: proc "stdcall" (
 			win.PatBlt(device_context, x, y, width, height, win.BLACKNESS) // Drawing the background color of the window
 
 			hdc_memory := win.CreateCompatibleDC(hdc = device_context)
+			
+			// So this struct takes in a BITMAPINFOHEADER and a bmiColors
+			// Thie BITMAPINFOHEADER is also a struct (can be found in types.odin for the windows package)
+			// So setting those values here.			
+			pbmi := win.BITMAPINFO {
+				bmiHeader = {
+					biSize = size_of(win.BITMAPINFOHEADER),
+					biWidth = i32(image_width),
+					biHeight = i32(-image_height),
+					biPlanes = 1,
+					biBitCount = 32,
+					biCompression = win.BI_RGB,
+				}
+			}
+
+			hBitmap = win.CreateDIBitmap(
+			hdc = device_context,
+			pbmih = &pbmi.bmiHeader,
+			flInit = win.CBM_INIT ,
+			pjBits = rawptr(image_data),
+			pbmi = &pbmi,
+			iUsage = win.DIB_RGB_COLORS,
+			)
 
 			hOldBitmap:win.HBITMAP = cast(win.HBITMAP)win.SelectObject(hdc = hdc_memory, h = cast(win.HGDIOBJ)hBitmap)
 			bm:win.BITMAP
 
 			win.GetObjectW(h = cast(win.HANDLE)hBitmap, c = size_of(win.BITMAP), pv = &bm)
 
-			// Instead of using BitBlt, use StretchBlt and define the wDest and hDest to be the resize target
-			win.StretchBlt(
-				hdcDest = device_context,
-				xDest = 0,
-				yDest = 0,
-				wDest = 640,
-				hDest = 480,
+			win.BitBlt(
+				hdc = device_context,
+				x = 0,
+				y = 0,
+				cx = bm.bmWidth,
+				cy = bm.bmHeight ,
 				hdcSrc = hdc_memory,
-				xSrc = 0,
-				ySrc = 0,
-				wSrc = bm.bmWidth,
-				hSrc = bm.bmHeight,
-				rop = win.SRCCOPY,
+				x1 = 0,
+				y1 =0,
+				rop = win.SRCCOPY
 			)
 
 			win.SelectObject(hdc = hdc_memory, h = cast(win.HGDIOBJ)hOldBitmap)
@@ -95,20 +137,10 @@ window_event_proc :: proc "stdcall" (
 				case win.VK_ESCAPE:
 					running = false
 			}
-
-		case win.WM_CHAR:
-			// The event for k presses (like, w,a,s,d etc)
-			switch(wParam) {
-				case:
-					key := win.GET_KEYSTATE_WPARAM(wParam = wParam)
-					fmt.println(rune(key))
-					fmt.println(hBitmap)
-			}
 	}
 
 	return win.DefWindowProcW(window, message, wParam, lParam)
 }
-
 
 main :: proc() {
 	instance := win.HINSTANCE(win.GetModuleHandleW(nil)) // Create Instance
@@ -118,7 +150,7 @@ main :: proc() {
 		style = win.CS_OWNDC | win.CS_HREDRAW | win.CS_VREDRAW,
 		lpfnWndProc = window_event_proc,
 		hInstance = instance,
-		lpszClassName = win.L("RectangleleWindowClass"),		
+		lpszClassName = win.L("LoadImageJPEGClass"),		
 	}
 
 	win.RegisterClassW(lpWndClass = &window_class) // Register the class
@@ -127,12 +159,12 @@ main :: proc() {
 	window := win.CreateWindowExW(
 		dwExStyle = 0,
 		lpClassName = window_class.lpszClassName,
-		lpWindowName = win.L("Rectangle"),
+		lpWindowName = win.L("LoadImageJPEG"),
 		dwStyle = win.WS_OVERLAPPED | win.WS_VISIBLE | win.WS_SYSMENU,
 		X = 0,
 		Y = 0,
-		nWidth = 640,
-		nHeight = 480,
+		nWidth = 720,
+		nHeight = 713,
 		hWndParent = nil,
 		hMenu = nil,
 		hInstance = instance,
